@@ -2,7 +2,6 @@ from pathlib import Path
 import shutil
 from typing import List, Dict, Any, Tuple
 
-import botocore
 import boto3
 import click
 import toml

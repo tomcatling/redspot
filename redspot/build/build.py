@@ -23,7 +23,9 @@ import click
 import toml
 import utils
 
-CONFIG_FIELDS = ["ImageTag", "S3PayloadBucket", "S3PayloadPath", "S3OutputPath"]
+CONFIG_FIELDS = [
+    "ImageTag", "S3PayloadBucket", "S3PayloadPath", "S3OutputPath"
+]
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -75,7 +77,9 @@ def cli(
     root = utils.find_project_root(src)
     target = Path(src)
 
-    config, missing = utils.load_config(root, timeout, instance_type, CONFIG_FIELDS)
+    config, missing = utils.load_config(
+        root, timeout, instance_type, CONFIG_FIELDS
+    )
 
     if missing:
         click.secho(str(missing), fg='red')
@@ -114,6 +118,8 @@ def start_build_job(
     """
     build_template = Path(__file__).parent / 'build_stack.yml'
 
-    utils.push_payload(config["S3PayloadBucket"], dockerfile, config["S3PayloadPath"])
+    utils.push_payload(
+        config["S3PayloadBucket"], dockerfile, config["S3PayloadPath"]
+    )
 
     utils.create_stack(stack_name, build_template, config)
