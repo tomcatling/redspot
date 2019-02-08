@@ -2,7 +2,7 @@
 
 import nox
 
-SOURCES = ["noxfile.py", "redspot", "tests"]
+SOURCES = ["noxfile.py", "redspot"]
 
 
 @nox.session()
