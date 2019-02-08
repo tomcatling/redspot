@@ -1,7 +1,7 @@
 import click
 
-from build import build
-from run import run
+from redspot.build import build
+from redspot.run import run
 
 
 @click.group()

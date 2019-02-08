@@ -7,4 +7,5 @@ __pycache__/
 .nox/
 *.DS_Store
 *.zip
+.eggs
 .cache

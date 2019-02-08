@@ -21,7 +21,7 @@ import botocore
 import click
 
 import toml
-import utils
+from redspot import utils
 
 CONFIG_FIELDS = [
     "ImageTag",
