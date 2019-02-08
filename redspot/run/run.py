@@ -16,10 +16,19 @@
 
 from pathlib import Path
 
+import boto3
+import botocore
 import click
 
 import toml
 import utils
+
+CONFIG_FIELDS = [
+    "ImageTag",
+    "S3PayloadBucket",
+    "S3PayloadPath",
+    "S3OutputPath",
+]
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -71,7 +80,9 @@ def cli(
     root = utils.find_project_root(src)
     target = Path(src)
 
-    config, missing = utils.load_config(root, timeout, instance_type)
+    config, missing = utils.load_config(
+        root, timeout, instance_type, CONFIG_FIELDS
+    )
 
     if missing:
         click.secho(f"Missing: {missing}", fg="red")
@@ -85,7 +96,19 @@ def cli(
         click.secho(f"'{target}' extension is not '.ipynb'.", fg="red")
         click.secho("Exiting", fg="red")
         ctx.exit(1)
-    start_nb_job(root, target, stack_name, config)
+
+    try:
+        start_nb_job(root, target, stack_name, config)
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "InvalidClientTokenId":
+            click.secho("Bad AWS credentials.", fg="red")
+            ctx.exit(1)
+    except boto3.exceptions.S3UploadFailedError:
+        click.secho("Failed to upload payload to S3.", fg="red")
+        ctx.exit(1)
+    else:
+        click.secho("Done", fg="green")
+        ctx.exit(0)
 
 
 def start_nb_job(
@@ -106,5 +129,8 @@ def start_nb_job(
     payload_directory = notebook_path.parent
     payload_path = utils.create_payload(payload_directory)
 
-    utils.push_payload(payload_path, config["S3PayloadPath"])
+    utils.push_payload(
+        config["S3PayloadBucket"], payload_path, config["S3PayloadPath"]
+    )
+
     utils.create_stack(stack_name, job_template, config)

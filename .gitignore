@@ -6,4 +6,5 @@ __pycache__/
 .python-version
 .nox/
 *.DS_Store
+*.zip
 .cache

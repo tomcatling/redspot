@@ -16,10 +16,14 @@
 
 from pathlib import Path
 
+import boto3
+import botocore
 import click
 
 import toml
 import utils
+
+CONFIG_FIELDS = ["ImageTag", "S3PayloadBucket", "S3PayloadPath", "S3OutputPath"]
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
@@ -71,7 +75,7 @@ def cli(
     root = utils.find_project_root(src)
     target = Path(src)
 
-    config, missing = utils.load_config(root, timeout, instance_type)
+    config, missing = utils.load_config(root, timeout, instance_type, CONFIG_FIELDS)
 
     if missing:
         click.secho(str(missing), fg='red')
@@ -81,7 +85,18 @@ def cli(
 
     #  Create a stack with the appropriate template
     #  and loaded config.
-    start_build_job(root, target, stack_name, config)
+    try:
+        start_build_job(root, target, stack_name, config)
+    except botocore.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == 'InvalidClientTokenId':
+            click.secho('Bad AWS credentials.', fg='red')
+            ctx.exit(1)
+    except boto3.exceptions.S3UploadFailedError:
+        click.secho('Failed to upload payload to S3.', fg='red')
+        ctx.exit(1)
+    else:
+        click.secho('Done', fg='green')
+        ctx.exit(0)
 
 
 def start_build_job(
@@ -99,5 +114,6 @@ def start_build_job(
     """
     build_template = Path(__file__).parent / 'build_stack.yml'
 
-    utils.push_payload(dockerfile, config["S3PayloadPath"])
+    utils.push_payload(config["S3PayloadBucket"], dockerfile, config["S3PayloadPath"])
+
     utils.create_stack(stack_name, build_template, config)

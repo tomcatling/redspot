@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 from typing import List, Dict, Any, Tuple
 
+import botocore
 import boto3
 import click
 import toml
@@ -10,10 +11,6 @@ import toml
 CONFIG_PATH = Path(".redspot.toml")
 JOB_STACK = Path(".redspot_templates/job_stack.yml")
 BUILD_STACK = Path(".redspot_templates/build_stack.yml")
-
-MUST_EXIST = [CONFIG_PATH, JOB_STACK, BUILD_STACK]
-
-CONFIG_FIELDS = ["S3PayloadPath", "S3OutputPath", "ImageTag"]
 
 DEFAULT_TIMEOUT = 60
 DEFAULT_INSTANCE = "c5.2xLarge"
@@ -39,7 +36,7 @@ def find_project_root(src: str) -> Path:
 
 
 def load_config(
-    root: Path, timeout: int, instance_type: str
+    root: Path, timeout: int, instance_type: str, CONFIG_FIELDS: List[str]
 ) -> Tuple[Dict[str, Any], List[str]]:
     """
     Load cloudformation parameters and overwrite with command
@@ -54,11 +51,11 @@ def load_config(
     config["TimeOut"] = timeout
     config["InstanceType"] = instance_type
 
-    missing = verify_config(config)
+    missing = verify_config(config, CONFIG_FIELDS)
     return config, missing
 
 
-def verify_config(config: CFG) -> List[str]:
+def verify_config(config: CFG, CONFIG_FIELDS: List[str]) -> List[str]:
     #  Report any missing entries in the config file.
     return [p for p in CONFIG_FIELDS if p not in config]
 
@@ -73,15 +70,17 @@ def create_payload(payload_directory: Path) -> Path:
     Returns:
         payload_path (Path): Path to the payload.
     """
-    click.echo(f"Zipping {payload_directory.resolve()} for job payload.")
+    click.echo(f"Zipping {payload_directory}/* for job payload.")
 
     shutil.make_archive("payload", "zip", payload_directory)
-    payload_path = payload_directory / "payload.zip"
+    payload_path = payload_directory.parent / "payload.zip"
     return payload_path
 
 
-def push_payload(payload: Path, destination: str) -> None:
-    pass
+def push_payload(bucket: str, payload: Path, destination: str) -> None:
+    s3 = boto3.resource("s3")
+
+    s3.Bucket(bucket).upload_file(str(payload), destination)
 
 
 def create_stack(stack_name: str, template_path: Path, config: CFG) -> Any:
@@ -100,8 +99,17 @@ def create_stack(stack_name: str, template_path: Path, config: CFG) -> Any:
         template_body = f.read()
 
     client = boto3.client("cloudformation")
-    return client.validate_template(TemplateBody=template_body)
-    #  return client.create_stack(
-    #     StackName=stack_name, TemplateBody=template_body
-    #  )
-    #  return {}
+    # return client.validate_template(TemplateBody=template_body)
+
+    return client.create_stack(
+        StackName=stack_name,
+        TemplateBody=template_body,
+        Parameters=to_params(config),
+    )
+
+
+def to_params(config: CFG) -> List[Dict[str, Any]]:
+    return [
+        {"ParameterKey": k, "ParameterValue": str(v)}
+        for k, v in config.items()
+    ]
