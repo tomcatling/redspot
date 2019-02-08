@@ -1,0 +1,3 @@
+include LICENCE
+include redspot/run/job_stack.yml
+include redspot/build/build_stack.yml

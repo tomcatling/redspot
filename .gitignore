@@ -1,0 +1,9 @@
+/.mypy_cache/
+/build/
+/dist/
+/redspot.egg-info/
+__pycache__/
+.python-version
+.nox/
+*.DS_Store
+.cache

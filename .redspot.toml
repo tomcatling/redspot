@@ -1,0 +1,3 @@
+S3PayloadPath = "s3://bladla"
+S3OutputPath = "s3://blahblah"
+ImageTag = "image tag"
