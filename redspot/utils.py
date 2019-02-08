@@ -35,7 +35,11 @@ def find_project_root(src: str) -> Path:
 
 
 def load_config(
-    root: Path, timeout: int, instance_type: str, ip: str, CONFIG_FIELDS: List[str]
+    root: Path,
+    timeout: int,
+    instance_type: str,
+    ip: str,
+    CONFIG_FIELDS: List[str],
 ) -> Tuple[Dict[str, Any], List[str]]:
     """
     Load cloudformation parameters and overwrite with command
