@@ -1,4 +1,6 @@
 from pathlib import Path
+from requests import get
+
 import shutil
 from typing import List, Dict, Any, Tuple
 
@@ -8,8 +10,6 @@ import toml
 
 #  Files and folders required by the project.
 CONFIG_PATH = Path(".redspot.toml")
-JOB_STACK = Path(".redspot_templates/job_stack.yml")
-BUILD_STACK = Path(".redspot_templates/build_stack.yml")
 
 DEFAULT_TIMEOUT = 60
 DEFAULT_INSTANCE = "c5.2xLarge"
@@ -35,7 +35,7 @@ def find_project_root(src: str) -> Path:
 
 
 def load_config(
-    root: Path, timeout: int, instance_type: str, CONFIG_FIELDS: List[str]
+    root: Path, timeout: int, instance_type: str, ip: str, CONFIG_FIELDS: List[str]
 ) -> Tuple[Dict[str, Any], List[str]]:
     """
     Load cloudformation parameters and overwrite with command
@@ -47,8 +47,20 @@ def load_config(
         with open(config_path) as f:
             config.update(**toml.loads(f.read()))
 
-    config["TimeOut"] = timeout
-    config["InstanceType"] = instance_type
+    if timeout is not None:
+        config["TimeOut"] = timeout
+    elif "TimeOut" not in config:
+        config["TimeOut"] = 60
+
+    if instance_type is not None:
+        config["InstanceType"] = instance_type
+    elif "InstanceType" not in config:
+        config["InstanceType"] = "c5.2xlarge"
+
+    if ip is not None:
+        config["InBoundIP"] = ip
+    elif "InBoundIP" not in config:
+        config["InBoundIP"] = get("https://api.ipify.org").text
 
     missing = verify_config(config, CONFIG_FIELDS)
     return config, missing

@@ -28,6 +28,7 @@ CONFIG_FIELDS = [
     "S3PayloadBucket",
     "S3PayloadPath",
     "S3OutputPath",
+    "InBoundIP",
 ]
 
 
@@ -54,6 +55,13 @@ CONFIG_FIELDS = [
     help="A name for the CloudFormation stack.",
     show_default=False,
 )
+@click.option(
+    "--ip",
+    "--ip",
+    type=str,
+    help="IP address from which to allow SSH.",
+    show_default=False,
+)
 @click.argument(
     "src",
     nargs=1,
@@ -72,6 +80,7 @@ def cli(
     timeout: int,
     instance_type: str,
     stack_name: str,
+    ip: str,
     src: str,
 ) -> None:
     """
@@ -81,14 +90,14 @@ def cli(
     target = Path(src)
 
     config, missing = utils.load_config(
-        root, timeout, instance_type, CONFIG_FIELDS
+        root, timeout, instance_type, ip, CONFIG_FIELDS
     )
 
     if missing:
         click.secho(f"Missing: {missing}", fg="red")
         ctx.exit(1)
     else:
-        click.secho(toml.dumps(config).rstrip(), fg="yellow", bold=True)
+        click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
 
     #  Create a stack with the appropriate template
     #  and loaded config.
