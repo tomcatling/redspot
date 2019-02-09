@@ -58,6 +58,16 @@ def load_config(
             config[k] = v
 
     final_config, missing = verify_config(config, CONFIG_FIELDS)
+
+    if missing:
+        click.secho(
+                "Cannot find some config parameters in "
+                "the CLI args or '.redspot.toml' file "
+                f"associated with the target '{src}'",
+                fg='red'
+                )
+        click.secho(str(missing), fg='red')
+
     return final_config, missing
 
 

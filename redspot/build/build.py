@@ -123,13 +123,6 @@ def cli(
 
     click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
     if missing:
-        click.secho(
-            "Cannot find some config parameters in "
-            "the CLI args or '.redspot.toml' file "
-            f"associated with the target '{src}'",
-            fg='red'
-            )
-        click.secho(str(missing), fg='red')
         ctx.exit(1)
 
     #  Create a stack with the appropriate template
