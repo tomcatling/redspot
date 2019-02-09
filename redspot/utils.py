@@ -10,11 +10,12 @@ import toml
 
 #  Files and folders required by the project.
 CONFIG_PATH = Path(".redspot.toml")
-
-DEFAULT_TIMEOUT = 60
-DEFAULT_INSTANCE = "c5.2xLarge"
-
 CFG = Dict[str, Any]
+DEFAULT_CONFIG: CFG = {
+    "TimeOut" : 60,
+    "InstanceType" : "c5.2xlarge",
+    "InboundIP" : get("https://api.ipify.org").text
+}
 
 
 def find_project_root(src: str) -> Path:
@@ -35,44 +36,38 @@ def find_project_root(src: str) -> Path:
 
 
 def load_config(
-    root: Path,
-    timeout: int,
-    instance_type: str,
-    ip: str,
+    src: str,
+    arg_config: CFG,
     CONFIG_FIELDS: List[str],
-) -> Tuple[Dict[str, Any], List[str]]:
+) -> Tuple[CFG, List[str]]:
     """
     Load cloudformation parameters and overwrite with command
     line arguments where supplied.
     """
+    root = find_project_root(src)
     config_path = root / CONFIG_PATH
-    config: CFG = {}
+    
+    # Sensible defaults exist for some parameters.
+    config: CFG = DEFAULT_CONFIG
+
     if config_path.is_file():
         with open(config_path) as f:
             config.update(**toml.loads(f.read()))
 
-    if timeout is not None:
-        config["TimeOut"] = timeout
-    elif "TimeOut" not in config:
-        config["TimeOut"] = 60
+    # CLI parameters take priority.
+    for k,v in arg_config.items():
+        if v is not None:
+            config[k] = v
 
-    if instance_type is not None:
-        config["InstanceType"] = instance_type
-    elif "InstanceType" not in config:
-        config["InstanceType"] = "c5.2xlarge"
-
-    if ip is not None:
-        config["InBoundIP"] = ip
-    elif "InBoundIP" not in config:
-        config["InBoundIP"] = get("https://api.ipify.org").text
-
-    missing = verify_config(config, CONFIG_FIELDS)
-    return config, missing
+    final_config, missing = verify_config(config, CONFIG_FIELDS)
+    return final_config, missing
 
 
-def verify_config(config: CFG, CONFIG_FIELDS: List[str]) -> List[str]:
+def verify_config(config: CFG, CONFIG_FIELDS: List[str]) -> Tuple[CFG, List[str]]:
     #  Report any missing entries in the config file.
-    return [p for p in CONFIG_FIELDS if p not in config]
+    final_config = {k:v for k,v in config.items() if k in CONFIG_FIELDS}
+    missing  = [p for p in CONFIG_FIELDS if p not in config]
+    return final_config, missing
 
 
 def create_payload(payload_directory: Path) -> Path:

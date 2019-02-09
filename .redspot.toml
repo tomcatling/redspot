@@ -1,4 +1,5 @@
 S3PayloadBucket = 'bucketname'
 S3PayloadPath = "s3://bladla"
+S3OutputBucket = "second_bucket"
 S3OutputPath = "s3://blahblah"
 ImageTag = "image tag"

@@ -21,14 +21,15 @@ import botocore
 import click
 
 import toml
-from redspot import utils
+#from redspot import utils
+import utils
 
 CONFIG_FIELDS = [
     "ImageTag",
     "S3PayloadBucket",
     "S3PayloadPath",
-    "S3OutputPath",
-    "InBoundIP",
+    "InboundIP",
+    "InstanceRole"
 ]
 
 
@@ -56,8 +57,25 @@ CONFIG_FIELDS = [
     show_default=False,
 )
 @click.option(
-    "--ip",
-    "--ip",
+    "--payload-bucket",
+    type=str,
+    help="A bucket for job payloads.",
+    show_default=False,
+)
+@click.option(
+    "--payload-path",
+    type=str,
+    help="A path (key) for the job payload in S3.",
+    show_default=False,
+)
+@click.option(
+    "--instance-role",
+    type=str,
+    help="An ARN for the role which will be attached to the job instance.",
+    show_default=False,
+)
+@click.option(
+    "--inbound-ip",
     type=str,
     help="IP address from which to allow SSH.",
     show_default=False,
@@ -80,29 +98,46 @@ def cli(
     timeout: int,
     instance_type: str,
     stack_name: str,
-    ip: str,
+    payload_bucket: str,
+    payload_path: str,
+    instance_role: str,
+    inbound_ip: str,
     src: str,
 ) -> None:
     """
     Running notebook jobs on EC2.
     """
-    root = utils.find_project_root(src)
-    target = Path(src)
+
+    arg_config = {
+        "InboundIP" : inbound_ip,
+        "S3PayloadBucket" : payload_bucket,
+        "S3PayloadPath" : payload_path,
+        "InstanceRole" : instance_role,
+        "Timeout" : timeout,
+        "InstanceType" : instance_type
+    }
 
     config, missing = utils.load_config(
-        root, timeout, instance_type, ip, CONFIG_FIELDS
+        src, arg_config, CONFIG_FIELDS
     )
+    target = Path(src)
 
+
+    click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
     if missing:
+        click.secho(
+            "Cannot find some config parameters in "
+            "the CLI args or '.redspot.toml' file "
+            f"associated with the target '{src}'",
+            fg='red'
+            )
         click.secho(str(missing), fg='red')
         ctx.exit(1)
-    else:
-        click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
 
     #  Create a stack with the appropriate template
     #  and loaded config.
     try:
-        start_build_job(root, target, stack_name, config)
+        start_build_job(target, stack_name, config)
     except botocore.exceptions.ClientError as e:
         if e.response['Error']['Code'] == 'InvalidClientTokenId':
             click.secho('Bad AWS credentials.', fg='red')
@@ -116,7 +151,7 @@ def cli(
 
 
 def start_build_job(
-    root: Path, dockerfile: Path, stack_name: str, config: utils.CFG
+    dockerfile: Path, stack_name: str, config: utils.CFG
 ) -> None:
     """
     Start a job to build the specified Dockerfile on an EC2
