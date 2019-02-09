@@ -21,8 +21,7 @@ import botocore
 import click
 
 import toml
-#from redspot import utils
-import utils
+from redspot import utils
 
 CONFIG_FIELDS = [
     "ImageTag",
@@ -31,16 +30,13 @@ CONFIG_FIELDS = [
     "S3OutputBucket",
     "S3OutputPath",
     "InboundIP",
-    "InstanceRole"
+    "InstanceRole",
 ]
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.option(
-    "--timeout",
-    type=int,
-    help="Timeout for instances.",
-    show_default=True,
+    "--timeout", type=int, help="Timeout for instances.", show_default=True
 )
 @click.option(
     "--instance-type",
@@ -121,19 +117,17 @@ def cli(
     Running notebook jobs on EC2.
     """
     arg_config = {
-        "InboundIP" : inbound_ip,
-        "S3PayloadBucket" : payload_bucket,
-        "S3PayloadPath" : payload_path,
-        "S3OutputBucket" : output_bucket,
-        "S3OutputPath" : output_path,
-        "InstanceRole" : instance_role,
-        "Timeout" : timeout,
-        "InstanceType" : instance_type
+        "InboundIP": inbound_ip,
+        "S3PayloadBucket": payload_bucket,
+        "S3PayloadPath": payload_path,
+        "S3OutputBucket": output_bucket,
+        "S3OutputPath": output_path,
+        "InstanceRole": instance_role,
+        "Timeout": timeout,
+        "InstanceType": instance_type,
     }
 
-    config, missing = utils.load_config(
-        src, arg_config, CONFIG_FIELDS
-    )
+    config, missing = utils.load_config(src, arg_config, CONFIG_FIELDS)
     target = Path(src)
 
     click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
@@ -142,9 +136,9 @@ def cli(
             "Cannot find some config parameters in "
             "the CLI args or '.redspot.toml' file "
             f"associated with the target '{src}'",
-            fg='red'
-            )
-        click.secho(str(missing), fg='red')
+            fg="red",
+        )
+        click.secho(str(missing), fg="red")
         ctx.exit(1)
 
     #  Create a stack with the appropriate template

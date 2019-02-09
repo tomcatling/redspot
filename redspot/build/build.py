@@ -21,8 +21,7 @@ import botocore
 import click
 
 import toml
-#from redspot import utils
-import utils
+from redspot import utils
 
 CONFIG_FIELDS = [
     "ImageTag",
@@ -109,19 +108,18 @@ def cli(
     """
 
     arg_config = {
-        "InboundIP" : inbound_ip,
-        "S3PayloadBucket" : payload_bucket,
-        "S3PayloadPath" : payload_path,
-        "InstanceRole" : instance_role,
-        "Timeout" : timeout,
-        "InstanceType" : instance_type
+        "InboundIP": inbound_ip,
+        "S3PayloadBucket": payload_bucket,
+        "S3PayloadPath": payload_path,
+        "InstanceRole": instance_role,
+        "Timeout": timeout,
+        "InstanceType": instance_type
     }
 
     config, missing = utils.load_config(
         src, arg_config, CONFIG_FIELDS
     )
     target = Path(src)
-
 
     click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
     if missing:

@@ -12,9 +12,9 @@ import toml
 CONFIG_PATH = Path(".redspot.toml")
 CFG = Dict[str, Any]
 DEFAULT_CONFIG: CFG = {
-    "TimeOut" : 60,
-    "InstanceType" : "c5.2xlarge",
-    "InboundIP" : get("https://api.ipify.org").text
+    "TimeOut": 60,
+    "InstanceType": "c5.2xlarge",
+    "InboundIP": get("https://api.ipify.org").text,
 }
 
 
@@ -36,9 +36,7 @@ def find_project_root(src: str) -> Path:
 
 
 def load_config(
-    src: str,
-    arg_config: CFG,
-    CONFIG_FIELDS: List[str],
+    src: str, arg_config: CFG, CONFIG_FIELDS: List[str]
 ) -> Tuple[CFG, List[str]]:
     """
     Load cloudformation parameters and overwrite with command
@@ -46,7 +44,7 @@ def load_config(
     """
     root = find_project_root(src)
     config_path = root / CONFIG_PATH
-    
+
     # Sensible defaults exist for some parameters.
     config: CFG = DEFAULT_CONFIG
 
@@ -55,7 +53,7 @@ def load_config(
             config.update(**toml.loads(f.read()))
 
     # CLI parameters take priority.
-    for k,v in arg_config.items():
+    for k, v in arg_config.items():
         if v is not None:
             config[k] = v
 
@@ -63,10 +61,12 @@ def load_config(
     return final_config, missing
 
 
-def verify_config(config: CFG, CONFIG_FIELDS: List[str]) -> Tuple[CFG, List[str]]:
+def verify_config(
+    config: CFG, CONFIG_FIELDS: List[str]
+) -> Tuple[CFG, List[str]]:
     #  Report any missing entries in the config file.
-    final_config = {k:v for k,v in config.items() if k in CONFIG_FIELDS}
-    missing  = [p for p in CONFIG_FIELDS if p not in config]
+    final_config = {k: v for k, v in config.items() if k in CONFIG_FIELDS}
+    missing = [p for p in CONFIG_FIELDS if p not in config]
     return final_config, missing
 
 
