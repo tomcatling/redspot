@@ -61,11 +61,11 @@ def load_config(
 
     if missing:
         click.secho(
-                "Cannot find some config parameters in "
-                "the CLI args or '.redspot.toml' file "
-                f"associated with the target '{src}'",
-                fg='red'
-                )
+            "Cannot find some config parameters in "
+            "the CLI args or '.redspot.toml' file "
+            f"associated with the target '{src}'",
+            fg='red'
+        )
         click.secho(str(missing), fg='red')
 
     return final_config, missing
