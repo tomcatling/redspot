@@ -64,9 +64,9 @@ def load_config(
             "Cannot find some config parameters in "
             "the CLI args or '.redspot.toml' file "
             f"associated with the target '{src}'",
-            fg='red'
+            fg="red",
         )
-        click.secho(str(missing), fg='red')
+        click.secho(str(missing), fg="red")
 
     return final_config, missing
 
