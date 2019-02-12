@@ -66,7 +66,7 @@ Resources:
               mkdir ~/job
               aws s3api get-object --bucket ${S3PayloadBucket} --key ${S3PayloadKey} ~/job/payload.zip
               cd ~/job
-              unzip ~/job/payload.zip
+              unzip -o ~/job/payload.zip
               docker build -t ${ImageTag} .
               docker push ${ImageTag}
             - { S3PayloadBucket: !Ref 'S3PayloadBucket', S3PayloadKey: !Ref 'S3PayloadKey', ImageTag: !Ref 'ImageTag' }

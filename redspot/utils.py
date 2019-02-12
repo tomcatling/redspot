@@ -81,10 +81,7 @@ def create_payload(payload_directory: Path) -> Path:
         payload_path (Path): Path to the payload.
     """
     parent = payload_directory.parent
-    click.echo(
-        f"Zipping {payload_directory.resolve()}/* into {parent.resolve()}/payload.zip for job payload."
-    )
-    shutil.make_archive(parent / "payload", "zip", payload_directory)
+    shutil.make_archive(str(parent / "payload"), "zip", payload_directory)
     payload_path = parent / "payload.zip"
     return payload_path
 

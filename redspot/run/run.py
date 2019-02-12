@@ -19,6 +19,7 @@ from pathlib import Path
 import boto3
 import botocore
 import click
+import os
 
 import toml
 from redspot import utils
@@ -93,7 +94,7 @@ def cli(
     output_prefix: str,
     payload_bucket: str,
     payload_path: str,
-    instance_role: str,
+    instance_profile: str,
     inbound_ip: str,
     src: str,
 ) -> None:
@@ -105,8 +106,7 @@ def cli(
         "S3PayloadBucket": payload_bucket,
         "S3PayloadPath": payload_path,
         "S3OutputBucket": output_bucket,
-        "S3OutputPrefix": output_path,
-        "InstanceRole": instance_role,
+        "S3OutputPrefix": output_prefix,
         "Timeout": timeout,
         "InstanceType": instance_type,
         "InstanceProfile": instance_profile,
@@ -167,5 +167,5 @@ def start_nb_job(
     utils.push_payload(
         config["S3PayloadBucket"], payload_path, config["S3PayloadKey"]
     )
-
+    os.remove(payload_path)
     utils.create_stack(stack_name, job_template, config)
