@@ -5,7 +5,6 @@ import shutil
 from typing import List, Dict, Any, Tuple
 
 import boto3
-import click
 import toml
 
 #  Files and folders required by the project.
