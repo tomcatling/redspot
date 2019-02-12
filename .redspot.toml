@@ -1,5 +1,7 @@
-S3PayloadBucket = 'bucketname'
-S3PayloadPath = "s3://bladla"
-S3OutputBucket = "second_bucket"
-S3OutputPath = "s3://blahblah"
-ImageTag = "image tag"
+S3PayloadBucket = "redspot631013143897"
+S3PayloadKey = "payload"
+S3OutputBucket = "redspot631013143897"
+S3OutputPrefix = "outputs/"
+ImageTag = "631013143897.dkr.ecr.eu-west-2.amazonaws.com/redspot"
+InstanceProfile = "redspot-instance-profile"
+KeyPair = "redspot"

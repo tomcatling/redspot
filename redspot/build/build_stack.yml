@@ -2,26 +2,32 @@ AWSTemplateFormatVersion: '2010-09-09'
 Metadata:
   License: Apache-2.0
 Description: >-
-  This template creates creates an EC2 instance running an Ubuntu Deep Learning Base
-  AMI attached to the EIP referenced by 'InstanceEIP::Address' with the profile 
-  'InstanceProfile::S3Access' (both of these created in a previous stack).  
-  Ports 22,8888 and 443 are open to connections from <ip range>.
-  On startup, the image will install jupyterlab and run a server.
+  Stack to run a notebook job in EC2.
 Parameters:
-  CodeCommitRepoName:
-    Description: Name of the CodeCommit repository created for this stack.
-    Default: data-science-stack
+  InstanceProfile:
+    Description: ARN of instance profile for the job.
     Type: String
-  Timeout:
-    Description: Length of the timeout in minutes
+  ImageTag:
+    Description: ECR image for the job.
+    Type: String
+  S3PayloadBucket:
+    Description: S3 bucket to use for job payloads.
+    Type: String
+  S3PayloadKey:
+    Description: S3 key to use for job payloads.
+    Type: String
+  TimeOut:
+    Description: Timeout length for the instance in minutes.
+    Type: String
+  KeyPair:
+    Description: EC2 keypair allowing SSH to job instance.
     Type: String
   InstanceType:
-    Description: WebServer EC2 instance type
+    Description: EC2 instance type
     Type: String
-    Default: t2.micro
-    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large]
-    ConstraintDescription: must be a valid EC2 instance type.
-  SSHLocation:
+    AllowedValues: [t2.large, c5.xlarge]
+    ConstraintDescription: Must be a valid EC2 instance type.
+  InboundIP:
     Description: The IP address range that can be used to SSH to the EC2 instances
     Type: String
     MinLength: 9
@@ -29,83 +35,18 @@ Parameters:
     AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
     ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
 Resources:
-  EC2Role:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "EC2Role-${AWS::StackName}"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service: [ ec2.amazonaws.com ]
-          Action: [ "sts:AssumeRole" ]
-      Path: /
-      Policies:
-      - PolicyName: EC2Policy
-        PolicyDocument:
-          Version: 2012-10-17
-          Statement:
-          - Effect: Allow
-            Action:
-              - 'cloudformation:DeleteStack'
-            Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AWS::StackName}/*
-          - Effect: Allow
-            Action:
-              - ec2:TerminateInstances
-              - ec2:DeleteSecurityGroup
-            Resource: '*'
-            Condition:
-              StringEquals:
-                "ec2:ResourceTag/aws:cloudformation:stack-id": !Ref AWS::StackId
-          - Effect: Allow
-            Action:
-              - iam:DeleteInstanceProfile
-              - iam:RemoveRoleFromInstanceProfile
-            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:instance-profile/*"
-          - Effect: Allow
-            Action:
-              - iam:DeleteRolePolicy
-              - iam:DeleteRole
-            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/EC2Role-${AWS::StackName}"
-          - Effect: Allow
-            Action: 
-              - ec2:DescribeInstances
-            Resource: '*'
-          - Effect: Allow
-            Action:
-              - ecr:GetAuthorizationToken
-            Resource: '*'
-          - Effect: Allow
-            Action:
-              - s3:List
-              - s3:Get
-            Resource: !Sub "arn:aws:s3:::e-c-notebooks.${AWS::AccountId}/*"
-          - Effect: Allow
-            Action:
-              - s3:Put
-            Resource: !Sub "arn:aws:s3:::e-c-notebooks.${AWS::AccountId}/outputs/*"
-          - Effect: Allow
-            Action:
-              - ecr:*
-            Resource: arn:aws:ecr:*:*:repository/e-c-notebooks
-          - Effect: Allow
-            Action:
-              - codecommit:GitPull
-            Resource: arn:aws:codecommit:*:*:e-c-notebooks
-  RootInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Path: /
-      Roles: [ !Ref EC2Role ]
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref 'InstanceType'
-      SecurityGroups: [ !Ref 'InstanceSecurityGroup' ]
-      KeyName: e-c-notebooks
+      SecurityGroups: [!Ref 'InstanceSecurityGroup']
+      KeyName: !Ref KeyPair
       ImageId: ami-0bab1e17be043c7e9
-      IamInstanceProfile: !Ref RootInstanceProfile
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        -
+          Key: "ephemeral"
+          Value: "true"
       UserData:
         Fn::Base64: !Sub 
             - |
@@ -115,23 +56,20 @@ Resources:
               mv delete_stack.sh /usr/local/bin/delete_stack
               chmod +x /usr/local/bin/delete_stack
               trap delete_stack EXIT
-              echo "delete_stack" | at now +${Timeout} minutes 
+              echo "delete_stack" | at now +${TimeOut} minutes 
               yum update -y
+              sudo yum install zip unzip
               amazon-linux-extras install docker
               usermod -a -G docker ec2-user
               service docker start &
-              yum install git -y
-              curl -L https://github.com/docker/compose/releases/download/1.20.0/docker-compose-`uname -s`-`uname -m` -o /usr/bin/docker-compose
-              chmod +x /usr/bin/docker-compose
-              export HOME=/root
-              git config --global credential.helper '!aws codecommit credential-helper $@'
-              git config --global credential.UseHttpPath true
-              cd /home/ec2-user/ && mkdir repo && cd repo
-              git clone ${CodeCommitRepo} .
               $(aws ecr get-login --no-include-email --region ${AWS::Region})
-              docker build -t ${ImageTag} ./docker
+              mkdir ~/job
+              aws s3api get-object --bucket ${S3PayloadBucket} --key ${S3PayloadKey} ~/job/payload.zip
+              cd ~/job
+              unzip ~/job/payload.zip
+              docker build -t ${ImageTag} .
               docker push ${ImageTag}
-            - { CodeCommitRepo: !ImportValue 'ECNotebooks::CodeCommitAddress', ImageTag: !ImportValue 'ECNotebooks::ImageTagExport' }
+            - { S3PayloadBucket: !Ref 'S3PayloadBucket', S3PayloadKey: !Ref 'S3PayloadKey', ImageTag: !Ref 'ImageTag' }
   InstanceSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -140,19 +78,12 @@ Resources:
       - IpProtocol: tcp
         FromPort: 22
         ToPort: 22
-        CidrIp: !Ref 'SSHLocation'
+        CidrIp: !Ref 'InboundIP'
+      Tags:
+        -
+          Key: "ephemeral"
+          Value: "true"
 Outputs:
-  InstanceId:
-    Description: InstanceId of the newly created EC2 instance
-    Value: !Ref 'EC2Instance'
-  AZ:
-    Description: Availability Zone of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, AvailabilityZone]
-  PublicDNS:
-    Description: Public DNSName of the newly created EC2 instance
-    Value: !GetAtt [EC2Instance, PublicDnsName]
   PublicIP:
     Description: Public IP address of the newly created EC2 instance
     Value: !GetAtt [EC2Instance, PublicIp]
-    Export:
-      Name: "ECNotebooks::BuildPublicIp"

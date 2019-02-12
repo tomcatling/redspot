@@ -13,8 +13,8 @@ CONFIG_PATH = Path(".redspot.toml")
 CFG = Dict[str, Any]
 DEFAULT_CONFIG: CFG = {
     "TimeOut": 60,
-    "InstanceType": "c5.2xlarge",
-    "InboundIP": get("https://api.ipify.org").text,
+    "InstanceType": "c5.xlarge",
+    "InboundIP": "{}/32".format(get("https://api.ipify.org").text),
 }
 
 
@@ -47,7 +47,6 @@ def load_config(
 
     # Sensible defaults exist for some parameters.
     config: CFG = DEFAULT_CONFIG
-
     if config_path.is_file():
         with open(config_path) as f:
             config.update(**toml.loads(f.read()))
@@ -58,15 +57,6 @@ def load_config(
             config[k] = v
 
     final_config, missing = verify_config(config, CONFIG_FIELDS)
-
-    if missing:
-        click.secho(
-            "Cannot find some config parameters in "
-            "the CLI args or '.redspot.toml' file "
-            f"associated with the target '{src}'",
-            fg="red",
-        )
-        click.secho(str(missing), fg="red")
 
     return final_config, missing
 
@@ -90,10 +80,12 @@ def create_payload(payload_directory: Path) -> Path:
     Returns:
         payload_path (Path): Path to the payload.
     """
-    click.echo(f"Zipping {payload_directory}/* for job payload.")
-
-    shutil.make_archive("payload", "zip", payload_directory)
-    payload_path = payload_directory.parent / "payload.zip"
+    parent = payload_directory.parent
+    click.echo(
+        f"Zipping {payload_directory.resolve()}/* into {parent.resolve()}/payload.zip for job payload."
+    )
+    shutil.make_archive(parent / "payload", "zip", payload_directory)
+    payload_path = parent / "payload.zip"
     return payload_path
 
 
@@ -119,7 +111,6 @@ def create_stack(stack_name: str, template_path: Path, config: CFG) -> Any:
         template_body = f.read()
 
     client = boto3.client("cloudformation")
-    # return client.validate_template(TemplateBody=template_body)
 
     return client.create_stack(
         StackName=stack_name,

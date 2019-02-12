@@ -25,59 +25,41 @@ from redspot import utils
 
 CONFIG_FIELDS = [
     "ImageTag",
+    "InstanceType",
     "S3PayloadBucket",
-    "S3PayloadPath",
+    "S3PayloadKey",
     "InboundIP",
-    "InstanceRole"
+    "InstanceProfile",
+    "TimeOut",
+    "KeyPair",
 ]
 
 
 @click.command(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.option(
-    "-t",
-    "--timeout",
-    type=int,
-    help="Timeout for instances.",
-    show_default=True,
+    "--timeout", type=int, help="Timeout for the job.", show_default=True
 )
 @click.option(
-    "-i",
-    "--instance-type",
-    type=str,
-    help="EC2 instance type for the job.",
-    show_default=True,
+    "--instance-type", type=str, help="EC2 instance type for the job."
 )
 @click.option(
-    "-n",
     "--stack-name",
     type=str,
     default="ephemeral-stack",
-    help="A name for the CloudFormation stack.",
+    help="Name of the CloudFormation stack which will be created.",
     show_default=False,
 )
+@click.option("--payload-bucket", type=str, help="A bucket for job payloads.")
+@click.option("--payload-path", type=str, help="A key for job payloads in S3.")
 @click.option(
-    "--payload-bucket",
+    "--instance-profile",
     type=str,
-    help="A bucket for job payloads.",
-    show_default=False,
-)
-@click.option(
-    "--payload-path",
-    type=str,
-    help="A path (key) for the job payload in S3.",
-    show_default=False,
-)
-@click.option(
-    "--instance-role",
-    type=str,
-    help="An ARN for the role which will be attached to the job instance.",
-    show_default=False,
+    help="Name of the instance profile to use for the job instance.",
 )
 @click.option(
     "--inbound-ip",
     type=str,
-    help="IP address from which to allow SSH.",
-    show_default=False,
+    help="IP address from which inbound connections will be allowed.",
 )
 @click.argument(
     "src",
@@ -87,9 +69,9 @@ CONFIG_FIELDS = [
         file_okay=True,
         dir_okay=False,
         readable=True,
-        allow_dash=True
+        allow_dash=True,
     ),
-    is_eager=True,
+    is_eager=False,
 )
 @click.pass_context
 def cli(
@@ -104,25 +86,25 @@ def cli(
     src: str,
 ) -> None:
     """
-    Running notebook jobs on EC2.
+    Build a dockerfile in EC2 and push the image to ECR.
     """
 
     arg_config = {
         "InboundIP": inbound_ip,
         "S3PayloadBucket": payload_bucket,
-        "S3PayloadPath": payload_path,
+        "S3PayloadKey": payload_path,
         "InstanceRole": instance_role,
-        "Timeout": timeout,
-        "InstanceType": instance_type
+        "TimeOut": timeout,
+        "InstanceType": instance_type,
+        "InstanceProfile": instance_profile,
     }
 
-    config, missing = utils.load_config(
-        src, arg_config, CONFIG_FIELDS
-    )
+    config, missing = utils.load_config(src, arg_config, CONFIG_FIELDS)
     target = Path(src)
 
     click.secho(toml.dumps(config).rstrip(), fg="green", bold=True)
     if missing:
+        click.secho(str(missing), fg="red")
         ctx.exit(1)
 
     #  Create a stack with the appropriate template
@@ -130,14 +112,17 @@ def cli(
     try:
         start_build_job(target, stack_name, config)
     except botocore.exceptions.ClientError as e:
-        if e.response['Error']['Code'] == 'InvalidClientTokenId':
-            click.secho('Bad AWS credentials.', fg='red')
+        if e.response["Error"]["Code"] == "InvalidClientTokenId":
+            click.secho("Bad AWS credentials.", fg="red")
+            ctx.exit(1)
+        else:
+            click.secho(str(e), fg="red")
             ctx.exit(1)
     except boto3.exceptions.S3UploadFailedError:
-        click.secho('Failed to upload payload to S3.', fg='red')
+        click.secho("Failed to upload payload to S3.", fg="red")
         ctx.exit(1)
     else:
-        click.secho('Done', fg='green')
+        click.secho("Done", fg="green")
         ctx.exit(0)
 
 
@@ -154,10 +139,12 @@ def start_build_job(
     Returns:
         None
     """
-    build_template = Path(__file__).parent / 'build_stack.yml'
+    build_template = Path(__file__).parent / "build_stack.yml"
+
+    payload_directory = dockerfile.parent
+    payload_path = utils.create_payload(payload_directory)
 
     utils.push_payload(
-        config["S3PayloadBucket"], dockerfile, config["S3PayloadPath"]
+        config["S3PayloadBucket"], payload_path, config["S3PayloadKey"]
     )
-
-    utils.create_stack(stack_name, build_template, config)
+    status = utils.create_stack(stack_name, build_template, config)
